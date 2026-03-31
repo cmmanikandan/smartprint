@@ -152,29 +152,7 @@ export default function Auth() {
           </p>
         </div>
 
-        {isLogin && (
-          <div className="p-4 bg-purple-50 border border-purple-100 rounded-2xl flex items-center justify-between">
-            <div className="flex items-center space-x-3">
-              <div className="h-10 w-10 bg-purple-600 rounded-xl flex items-center justify-center text-white">
-                <User className="h-5 w-5" />
-              </div>
-              <div>
-                <p className="text-xs font-bold text-purple-900">Admin Account</p>
-                <p className="text-[10px] text-purple-600">cmadmin@gmail.com / CMMANI02</p>
-                <p className="text-[9px] text-purple-400 mt-1 italic">First time? Please <b>Sign Up</b> first.</p>
-              </div>
-            </div>
-            <button
-              onClick={() => {
-                setFormData({ ...formData, email: 'cmadmin@gmail.com', password: 'CMMANI02', confirmPassword: 'CMMANI02', name: 'Admin' });
-                if (isLogin) setIsLogin(false);
-              }}
-              className="text-xs font-bold text-purple-600 hover:text-purple-700 underline underline-offset-4"
-            >
-              Auto Fill & Sign Up
-            </button>
-          </div>
-        )}
+        {/* Admin account note and autofill removed */}
 
         {error && (
           <div className="p-4 bg-red-50 text-red-600 rounded-xl text-sm font-medium border border-red-100">
