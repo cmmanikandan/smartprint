@@ -1,0 +1,110 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "User profile information.",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "email": { "type": "string", "format": "email" },
+        "phone": { "type": "string" },
+        "role": { "type": "string", "enum": ["customer", "admin"] },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["name", "email", "role"]
+    },
+    "Order": {
+      "title": "Order",
+      "description": "Print order details.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "customerName": { "type": "string" },
+        "customerPhone": { "type": "string" },
+        "totalPrice": { "type": "number" },
+        "status": { "type": "string", "enum": ["uploaded", "queue", "printing", "printed", "delivered"] },
+        "emergency": { "type": "boolean" },
+        "paymentStatus": { "type": "string", "enum": ["pending", "paid"] },
+        "paymentMode": { "type": "string", "enum": ["upi", "cash", "online"] },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "deliveredAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "totalPrice", "status", "paymentStatus"]
+    },
+    "PrintFile": {
+      "title": "PrintFile",
+      "description": "Individual file settings within an order.",
+      "type": "object",
+      "properties": {
+        "orderId": { "type": "string" },
+        "fileName": { "type": "string" },
+        "fileUrl": { "type": "string" },
+        "pages": { "type": "number" },
+        "copies": { "type": "number" },
+        "color": { "type": "string", "enum": ["bw", "color"] },
+        "duplex": { "type": "boolean" },
+        "orientation": { "type": "string", "enum": ["portrait", "landscape"] },
+        "paperSize": { "type": "string", "enum": ["a4", "a3", "legal"] },
+        "extras": {
+          "type": "object",
+          "properties": {
+            "lamination": { "type": "boolean" },
+            "spiral": { "type": "boolean" },
+            "stapler": { "type": "boolean" },
+            "coverPage": { "type": "boolean" }
+          }
+        }
+      },
+      "required": ["orderId", "fileName", "pages", "copies"]
+    },
+    "Settings": {
+      "title": "Settings",
+      "description": "Shop configuration and pricing.",
+      "type": "object",
+      "properties": {
+        "pricePerBW": { "type": "number" },
+        "pricePerColor": { "type": "number" },
+        "emergencyCharge": { "type": "number" },
+        "laminationPrice": { "type": "number" },
+        "spiralPrice": { "type": "number" },
+        "shopStatus": { "type": "string", "enum": ["open", "closed"] },
+        "contactPhone": { "type": "string" }
+      }
+    },
+    "Message": {
+      "title": "Message",
+      "description": "A chat message between customer and shop.",
+      "type": "object",
+      "properties": {
+        "text": { "type": "string" },
+        "senderId": { "type": "string" },
+        "senderName": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "isAdmin": { "type": "boolean" }
+      },
+      "required": ["text", "senderId", "senderName", "createdAt", "isAdmin"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "User profiles."
+    },
+    "/orders/{orderId}": {
+      "schema": "Order",
+      "description": "Print orders."
+    },
+    "/orders/{orderId}/files/{fileId}": {
+      "schema": "PrintFile",
+      "description": "Files associated with an order."
+    },
+    "/orders/{orderId}/messages/{messageId}": {
+      "schema": "Message",
+      "description": "Chat messages for an order."
+    },
+    "/settings/config": {
+      "schema": "Settings",
+      "description": "Global shop settings."
+    }
+  }
+}

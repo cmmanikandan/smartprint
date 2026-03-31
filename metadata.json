@@ -1,0 +1,7 @@
+{
+  "name": "SmartPrint",
+  "description": "A modern SaaS print management system with QR-based delivery and automated pricing.",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}

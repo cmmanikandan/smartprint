@@ -1,0 +1,205 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // ===============================================================
+    // Assumed Data Model
+    // ===============================================================
+    //
+    // Collection: users
+    // Document ID: userId
+    // Fields:
+    //   - name: string (required)
+    //   - email: string (required, email format)
+    //   - phone: string (optional)
+    //   - role: string (required, enum: ['customer', 'admin'])
+    //   - createdAt: string (required, date-time)
+    //
+    // Collection: orders
+    // Document ID: orderId
+    // Fields:
+    //   - userId: string (required)
+    //   - customerName: string (required)
+    //   - customerPhone: string (optional)
+    //   - totalPrice: number (required, positive)
+    //   - status: string (required, enum: ['uploaded', 'queue', 'printing', 'printed', 'delivered'])
+    //   - emergency: bool (required)
+    //   - paymentStatus: string (required, enum: ['pending', 'paid'])
+    //   - paymentMode: string (optional, enum: ['upi', 'cash', 'online'])
+    //   - createdAt: string (required, date-time)
+    //   - deliveredAt: string (optional, date-time)
+    //
+    // Collection: orders/{orderId}/files
+    // Document ID: fileId
+    // Fields:
+    //   - orderId: string (required)
+    //   - fileName: string (required)
+    //   - fileUrl: string (required)
+    //   - pages: number (required, positive)
+    //   - copies: number (required, positive)
+    //   - color: string (required, enum: ['bw', 'color'])
+    //   - duplex: bool (required)
+    //   - orientation: string (required, enum: ['portrait', 'landscape'])
+    //   - paperSize: string (required, enum: ['a4', 'a3', 'legal'])
+    //   - extras: map (optional)
+    //
+    // Collection: orders/{orderId}/messages
+    // Document ID: messageId
+    // Fields:
+    //   - text: string (required)
+    //   - senderId: string (required)
+    //   - senderName: string (required)
+    //   - createdAt: string (required, date-time)
+    //   - isAdmin: bool (required)
+    //
+    // Collection: settings
+    // Document ID: config
+    // Fields:
+    //   - pricePerBW: number
+    //   - pricePerColor: number
+    //   - emergencyCharge: number
+    //   - laminationPrice: number
+    //   - spiralPrice: number
+    //   - shopStatus: string
+    //   - contactPhone: string
+    //
+    // ===============================================================
+
+    // ===============================================================
+    // Helper Functions
+    // ===============================================================
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function isAdmin() {
+      return isAuthenticated() &&
+        ((exists(/databases/$(database)/documents/users/$(request.auth.uid)) && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin') ||
+         (request.auth.token.email == "manikandanprabhu37@gmail.com") ||
+         (request.auth.token.email == "manikandan@gmail.com") ||
+         (request.auth.token.email == "cmadmin@gmail.com") ||
+         (request.auth.uid == "4UaYHpVPdNfnIVLuHAFa71X8n6l2"));
+    }
+
+    function isOrderOwner(orderId) {
+      return isAuthenticated() && (
+        (exists(/databases/$(database)/documents/orders/$(orderId)) && get(/databases/$(database)/documents/orders/$(orderId)).data.userId == request.auth.uid) ||
+        (getAfter(/databases/$(database)/documents/orders/$(orderId)).data.userId == request.auth.uid)
+      );
+    }
+
+    function isValidEmail(email) {
+      return email is string && email.matches("^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$");
+    }
+
+    function isValidDateString(dateStr) {
+      return dateStr is string && dateStr.matches("^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}.*Z?$");
+    }
+
+    function hasOnlyAllowedFields(data, fields) {
+      return data.keys().hasOnly(fields);
+    }
+
+    // ===============================================================
+    // Domain Validators
+    // ===============================================================
+    function isValidUser(data) {
+      return hasOnlyAllowedFields(data, ['name', 'email', 'phone', 'role', 'createdAt', 'isBlocked', 'photoURL']) &&
+             data.name is string && data.name.size() > 0 && data.name.size() < 100 &&
+             isValidEmail(data.email) &&
+             data.role in ['customer', 'admin'] &&
+             isValidDateString(data.createdAt) &&
+             (!('isBlocked' in data) || data.isBlocked is bool) &&
+             (!('photoURL' in data) || data.photoURL == null || (data.photoURL is string && data.photoURL.size() > 0));
+    }
+
+    function isValidOrder(data) {
+      return hasOnlyAllowedFields(data, ['userId', 'customerName', 'customerPhone', 'totalPrice', 'status', 'emergency', 'paymentStatus', 'paymentMode', 'createdAt', 'deliveredAt']) &&
+             data.userId is string &&
+             data.customerName is string && data.customerName.size() > 0 &&
+             (!('customerPhone' in data) || data.customerPhone is string) &&
+             data.totalPrice is number && data.totalPrice >= 0 &&
+             data.status in ['uploaded', 'queue', 'printing', 'printed', 'delivered'] &&
+             data.emergency is bool &&
+             data.paymentStatus in ['pending', 'paid'] &&
+             (!('paymentMode' in data) || data.paymentMode in ['upi', 'cash', 'online']) &&
+             isValidDateString(data.createdAt) &&
+             (!('deliveredAt' in data) || data.deliveredAt == null || isValidDateString(data.deliveredAt));
+    }
+
+    function isValidFile(data) {
+      return hasOnlyAllowedFields(data, ['orderId', 'fileName', 'fileUrl', 'pages', 'copies', 'color', 'duplex', 'orientation', 'paperSize', 'extras']) &&
+             data.orderId is string &&
+             data.fileName is string && data.fileName.size() > 0 &&
+             data.fileUrl is string && data.fileUrl.size() > 0 &&
+             data.pages is number && data.pages > 0 &&
+             data.copies is number && data.copies > 0 &&
+             data.color in ['bw', 'color'] &&
+             data.duplex is bool &&
+             data.orientation in ['portrait', 'landscape'] &&
+             data.paperSize in ['a4', 'a3', 'legal'];
+    }
+
+    function isValidMessage(data) {
+      return hasOnlyAllowedFields(data, ['text', 'senderId', 'senderName', 'createdAt', 'isAdmin']) &&
+             data.text is string && data.text.size() > 0 && data.text.size() < 1000 &&
+             data.senderId == request.auth.uid &&
+             data.senderName is string &&
+             isValidDateString(data.createdAt) &&
+             data.isAdmin is bool &&
+             (!data.isAdmin || isAdmin());
+    }
+
+    function isValidQueueItem(data) {
+      return hasOnlyAllowedFields(data, ['orderId', 'customerName', 'priority', 'position', 'status', 'totalPages', 'estimatedTime', 'createdAt']) &&
+             data.orderId is string &&
+             data.customerName is string &&
+             data.priority in ['normal', 'emergency'] &&
+             data.position is number &&
+             data.status in ['waiting', 'printing', 'completed', 'paused', 'cancelled'] &&
+             data.totalPages is number &&
+             data.estimatedTime is number &&
+             isValidDateString(data.createdAt);
+    }
+
+    // ===============================================================
+    // Rules
+    // ===============================================================
+
+    match /users/{userId} {
+      allow read: if isOwner(userId) || isAdmin();
+      allow create: if isAuthenticated() && isValidUser(request.resource.data) && (isOwner(userId) || isAdmin());
+      allow update: if isAuthenticated() && isValidUser(request.resource.data) && (isAdmin() || (isOwner(userId) && request.resource.data.role == resource.data.role && request.resource.data.email == resource.data.email && request.resource.data.createdAt == resource.data.createdAt));
+    }
+
+    match /orders/{orderId} {
+      allow read: if isAuthenticated() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow create: if isAuthenticated() && isValidOrder(request.resource.data) && (request.resource.data.userId == request.auth.uid || isAdmin());
+      allow update: if isAuthenticated() && isValidOrder(request.resource.data) && (isAdmin() || (resource.data.userId == request.auth.uid && request.resource.data.status == resource.data.status && request.resource.data.totalPrice == resource.data.totalPrice));
+      
+      match /files/{fileId} {
+        allow read: if isAuthenticated() && (isOrderOwner(orderId) || isAdmin());
+        allow create: if isAuthenticated() && isValidFile(request.resource.data) && (isOrderOwner(orderId) || isAdmin());
+        allow update: if isAdmin();
+      }
+
+      match /messages/{messageId} {
+        allow read: if isAuthenticated() && (isOrderOwner(orderId) || isAdmin());
+        allow create: if isAuthenticated() && isValidMessage(request.resource.data) && (isOrderOwner(orderId) || isAdmin());
+      }
+    }
+
+    match /queue/{queueId} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin();
+    }
+
+    match /settings/config {
+      allow read: if true; // Publicly readable for pricing
+      allow write: if isAdmin();
+    }
+  }
+}
