@@ -11,7 +11,7 @@ import {
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { cn } from '../lib/utils';
-import QrReader from 'react-qr-scanner';
+import { QrScanner } from '@yudiel/react-qr-scanner';
 
 export default function QRScanner() {
   const [orderId, setOrderId] = useState('');
@@ -125,18 +125,14 @@ export default function QRScanner() {
 
         {showScanner && (
           <div className="mt-4 overflow-hidden rounded-3xl">
-            <QrReader
-              delay={300}
-              onScan={(result) => {
-                if (result) {
-                  const id = result.getText();
-                  setOrderId(id);
-                  handleScan(id);
-                }
+            <QrScanner
+              onDecode={(id) => {
+                setOrderId(id);
+                handleScan(id);
               }}
               onError={(err) => console.error(err)}
-              constraints={{ video: { facingMode: 'environment' } }}
-              className="w-full"
+              constraints={{ facingMode: 'environment' }}
+              containerStyle={{ width: '100%' }}
             />
           </div>
         )}
